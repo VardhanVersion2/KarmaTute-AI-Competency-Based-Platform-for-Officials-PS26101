@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface EvidenceRecordRepository extends JpaRepository<EvidenceRecord, Long> {
     List<EvidenceRecord> findByUserIdAndCompetencyId(Long userId, Long competencyId);
+    List<EvidenceRecord> findByUserId(Long userId);
 }

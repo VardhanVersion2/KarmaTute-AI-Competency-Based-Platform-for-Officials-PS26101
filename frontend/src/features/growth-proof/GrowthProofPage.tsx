@@ -6,14 +6,16 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../context/ToastContext';
 import { useApp } from '../../context/AppContext';
-import { RefreshCw, ShieldCheck, Download, History, ArrowRight, Lock, Hash } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Download, History, ArrowRight, Lock, Hash, Award } from 'lucide-react';
 import {
   getUserEvidence,
   getCompetencySnapshots,
   type EvidenceRecord,
 } from '../../services/evidenceApi';
 
-const DEMO_USER_ID = 1;
+import { fetchWithAuth } from '../../services/apiClient';
+
+
 
 export function GrowthProofPage() {
   const toast = useToast();
@@ -26,33 +28,20 @@ export function GrowthProofPage() {
     setIsLoading(true);
     setCoreState('processing');
     try {
-      const isFresh = localStorage.getItem('demo_fresh_start') === 'true';
-      if (isFresh) {
-        setEvidence([]);
-        setCertificates([]);
-        setCoreState('success');
-        setIsLoading(false);
-        return;
-      }
-      const evData = await getUserEvidence(DEMO_USER_ID);
+
+      const evData = await getUserEvidence();
       
-      // Fetch certificates from the actual endpoint if wired up, else mock for UI completeness
+      // Fetch certificates from backend
       try {
-        const certRes = await fetch(`${API_BASE_URL}/api/certificate/user/${DEMO_USER_ID}`);
-        if(certRes.ok) {
-           const certs = await certRes.json();
-           setCertificates(certs);
+        const certRes = await fetchWithAuth(`/api/certificate/me`);
+        if (certRes.ok) {
+          const certs = await certRes.json();
+          setCertificates(certs);
+        } else {
+          setCertificates([]);
         }
-      } catch(e) {
-        // Fallback demo certificate if backend certificate controller isn't seeded for this user
-        setCertificates([{
-          id: 'CERT-2026-MOSPI-8819A',
-          competencyId: 2,
-          competencyName: 'DPDP Act & Digital Privacy',
-          status: 'ISSUED',
-          issuedAt: new Date().toISOString(),
-          integrityHash: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4'
-        }]);
+      } catch (e) {
+        setCertificates([]);
       }
 
       setEvidence(evData.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
@@ -122,35 +111,73 @@ export function GrowthProofPage() {
                   <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                     <Award size={100} />
                   </div>
-                  <div className="p-6 pb-4 border-b border-gov-border bg-gov-surface-muted flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-bold text-gov-success bg-gov-success-bg px-2 py-0.5 rounded-sm border border-gov-success-border mb-2 inline-block">
-                        VERIFIED · {cert.status}
-                      </span>
-                      <h4 className="text-lg font-bold text-gov-primary leading-tight">{cert.competencyName || `Competency ID ${cert.competencyId}`}</h4>
+                    <div className="p-6 pb-4 border-b border-gov-border bg-gov-surface-muted flex items-start justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-gov-success bg-gov-success-bg px-2 py-0.5 rounded-sm border border-gov-success-border mb-2 inline-block">
+                          VERIFIED · {cert.status}
+                        </span>
+                        <h4 className="text-lg font-bold text-gov-primary leading-tight">{cert.competencySummary || `Competency ID ${cert.competencyId}`}</h4>
+                      </div>
+                    </div>
+                    <div className="p-6 flex flex-col gap-4">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gov-text-secondary font-bold uppercase">Issued On</span>
+                        <span className="font-medium text-gov-text-primary">{new Date(cert.issuedAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gov-text-secondary font-bold uppercase">Score</span>
+                        <span className="font-medium text-gov-primary bg-gov-primary/10 px-2 py-0.5 rounded-full">{cert.achievedScore?.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gov-text-secondary font-bold uppercase">Ledger ID</span>
+                        <span className="font-mono text-gov-text-primary bg-gov-surface-muted px-1.5 py-0.5 border border-gov-border">{cert.certificateId}</span>
+                      </div>
+                      <div className="flex flex-col gap-1 mt-2">
+                        <span className="text-[10px] text-gov-text-secondary font-bold uppercase flex items-center gap-1"><Lock size={10}/> Integrity Hash (SHA-256)</span>
+                        <span className="text-[10px] font-mono text-gov-text-muted truncate" title={cert.integrityHash}>{cert.integrityHash}</span>
+                      </div>
+                    </div>
+                    <div className="mt-auto p-4 border-t border-gov-border bg-gov-bg flex justify-end">
+                      <Button size="sm" variant="outline" leftIcon={<Download size={14}/>} 
+                        className="bg-white border-gov-border text-gov-text-primary hover:bg-gov-surface-muted w-full justify-center"
+                        onClick={() => {
+                          const printWindow = window.open('', '_blank');
+                          if (printWindow) {
+                            printWindow.document.write(`
+                              <html>
+                                <head>
+                                  <title>Certificate - ${cert.certificateId}</title>
+                                  <style>
+                                    body { font-family: sans-serif; text-align: center; padding: 50px; }
+                                    .cert { border: 10px solid #003366; padding: 50px; max-width: 800px; margin: 0 auto; }
+                                    h1 { color: #003366; }
+                                    .hash { font-family: monospace; font-size: 10px; color: #666; margin-top: 50px; word-break: break-all; }
+                                  </style>
+                                </head>
+                                <body>
+                                  <div class="cert">
+                                    <h1>CERTIFICATE OF COMPETENCY</h1>
+                                    <p>This certifies that the official has demonstrated proficiency in:</p>
+                                    <h2>${cert.competencySummary || 'Competency ' + cert.competencyId}</h2>
+                                    <p>Achieved Score: <strong>${cert.achievedScore?.toFixed(1)}%</strong></p>
+                                    <p>Date: ${new Date(cert.issuedAt).toLocaleDateString()}</p>
+                                    <div class="hash">
+                                      Certificate ID: ${cert.certificateId}<br/>
+                                      Integrity Hash: ${cert.integrityHash}
+                                    </div>
+                                  </div>
+                                  <script>window.print();</script>
+                                </body>
+                              </html>
+                            `);
+                            printWindow.document.close();
+                          }
+                        }}>
+                        Download PDF
+                      </Button>
                     </div>
                   </div>
-                  <div className="p-6 flex flex-col gap-4">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gov-text-secondary font-bold uppercase">Issued On</span>
-                      <span className="font-medium text-gov-text-primary">{new Date(cert.issuedAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gov-text-secondary font-bold uppercase">Ledger ID</span>
-                      <span className="font-mono text-gov-text-primary bg-gov-surface-muted px-1.5 py-0.5 border border-gov-border">{cert.id}</span>
-                    </div>
-                    <div className="flex flex-col gap-1 mt-2">
-                      <span className="text-[10px] text-gov-text-secondary font-bold uppercase flex items-center gap-1"><Lock size={10}/> Integrity Hash (SHA-256)</span>
-                      <span className="text-[10px] font-mono text-gov-text-muted truncate" title={cert.integrityHash}>{cert.integrityHash}</span>
-                    </div>
-                  </div>
-                  <div className="mt-auto p-4 border-t border-gov-border bg-gov-bg flex justify-end">
-                    <Button size="sm" variant="outline" leftIcon={<Download size={14}/>} className="bg-white border-gov-border text-gov-text-primary hover:bg-gov-surface-muted w-full justify-center">
-                      Download PDF
-                    </Button>
-                  </div>
-                </div>
-              ))
+                ))
             )}
           </div>
         </div>
@@ -190,7 +217,7 @@ export function GrowthProofPage() {
                       <td className="p-4">
                         <div className="font-bold text-gov-primary">{ev.sourceRef || 'System Assessment'}</div>
                         <div className="text-xs text-gov-text-secondary mt-0.5 flex items-center gap-1">
-                          <Hash size={10} /> ID: {ev.id?.substring(0,8) || '...'}
+                          <Hash size={10} /> ID: {ev.id?.toString().substring(0,8) || '...'}
                         </div>
                       </td>
                       <td className="p-4 text-xs font-bold text-gov-text-secondary">
@@ -199,7 +226,7 @@ export function GrowthProofPage() {
                         </span>
                       </td>
                       <td className="p-4 text-center font-mono font-bold text-gov-primary">
-                        {ev.normalizedScore ? (ev.normalizedScore * 100).toFixed(1) : (ev.rawScore || 0).toFixed(1)}
+                        {ev.normalizedScore ? (ev.normalizedScore * 100).toFixed(1) : (ev.score || 0).toFixed(1)}
                       </td>
                       <td className="p-4 text-center">
                         <span className="font-mono text-xs font-bold bg-gov-info-bg text-gov-info px-2 py-1 rounded-sm border border-gov-info-border inline-block">
@@ -227,3 +254,5 @@ export function GrowthProofPage() {
     </>
   );
 }
+
+

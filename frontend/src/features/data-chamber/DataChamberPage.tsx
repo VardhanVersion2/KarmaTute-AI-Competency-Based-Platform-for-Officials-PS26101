@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { PageTutorialModal } from '../../components/ui/PageTutorialModal';
 import { Button } from '../../components/ui/Button';
-import { Shield, Download, Upload, Key, Lock, FileJson, Layers, ShieldCheck, ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Shield, Fingerprint, Download, Upload, Lock, Clock, FileKey, Share2, Search, ArrowRight, Eye, RefreshCw, Zap, ShieldCheck, Layers, Key, CheckCircle2, FileJson } from 'lucide-react';
+import { fetchWithAuth } from '../../services/apiClient';
 import { useToast } from '../../context/ToastContext';
 
-const DEMO_USER_ID = 1;
+
 
 // ... keeping tutorial unchanged ...
 
@@ -105,7 +106,7 @@ export function DataChamberPage() {
   const handleExport = async () => {
     setIsProcessing(true);
     try {
-      const res = await fetch(`/api/karmadna/export/${DEMO_USER_ID}`);
+      const res = await fetchWithAuth(`/api/karmadna/export/me`);
       if (!res.ok) throw new Error('Failed to generate KarmaDNA');
       
       const data = await res.json();
@@ -116,7 +117,7 @@ export function DataChamberPage() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `user_${DEMO_USER_ID}.karma`;
+      link.download = `my_data.karma`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -137,7 +138,7 @@ export function DataChamberPage() {
     }
     setIsProcessing(true);
     try {
-      const res = await fetch('/api/karmadna/import', {
+      const res = await fetchWithAuth('/api/karmadna/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secretKey: importKey, karmaData: importData })

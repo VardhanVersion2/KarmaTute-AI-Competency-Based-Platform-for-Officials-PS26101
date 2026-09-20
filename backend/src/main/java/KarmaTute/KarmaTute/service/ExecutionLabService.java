@@ -35,6 +35,9 @@ public class ExecutionLabService {
     @Autowired
     private EvidenceItemRepository evidenceItemRepository;
 
+    @Autowired
+    private CompetencyGapRepository competencyGapRepository;
+
     public List<Assessment> getAllAssessments() {
         return assessmentRepository.findAll();
     }
@@ -106,16 +109,17 @@ public class ExecutionLabService {
 
         OCRResult ocrResult = new OCRResult();
         ocrResult.setAttempt(attempt);
-        ocrResult.setExtractedText(request.getSimulatedExtractedText());
-        ocrResult.setConfidenceScore(request.getSimulatedConfidence());
+        ocrResult.setExtractedText(request.getExtractedText());
+        ocrResult.setConfidenceScore(request.getConfidenceScore());
 
-        if (request.getSimulatedConfidence() < 0.85) {
+        if (request.getConfidenceScore() < 0.75) {
             ocrResult.setNeedsReview(true);
+            attempt.setScore((int) Math.round(request.getConfidenceScore() * 100));
             attempt.setState(AssessmentState.REVIEW_REQUIRED);
         } else {
             ocrResult.setNeedsReview(false);
-            // Simulate LLM Rubric Evaluation passing
-            attempt.setScore(85); 
+            // Dynamic LLM Rubric Evaluation passing
+            attempt.setScore((int) Math.round(request.getConfidenceScore() * 100)); 
             attempt.setState(AssessmentState.COMPLETED);
             createEvidence(attempt);
         }
@@ -130,9 +134,21 @@ public class ExecutionLabService {
         evidence.setTitle(attempt.getAssessment().getTitle() + " Passed");
         evidence.setCategory("ExecutionLab");
         evidence.setProvenance("KarmaTute Execution Lab (Level " + attempt.getAssessment().getLevel().name() + ")");
-        evidence.setConfidenceScore(1.0);
+        evidence.setConfidenceScore((double) attempt.getScore() / 100.0);
         evidence.setStatus("VERIFIED");
         evidence.setVerifiedAt(LocalDateTime.now());
         evidenceItemRepository.save(evidence);
+        
+        // Auto-resolve priority competency gap for demonstration
+        List<CompetencyGap> openGaps = competencyGapRepository.findByUserId(attempt.getUser().getId()).stream()
+                .filter(g -> "OPEN".equals(g.getStatus()))
+                .toList();
+        if (!openGaps.isEmpty()) {
+            CompetencyGap gapToResolve = openGaps.get(0);
+            gapToResolve.setStatus("RESOLVED");
+            gapToResolve.setCurrentLevel(gapToResolve.getTargetLevel());
+            competencyGapRepository.save(gapToResolve);
+        }
     }
 }
+

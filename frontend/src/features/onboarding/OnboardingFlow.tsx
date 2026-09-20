@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { fetchWithAuth } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 import { 
   WelcomeStep, 
@@ -36,17 +37,46 @@ export function OnboardingFlow() {
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 5));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
   
-  const finishOnboarding = () => {
-    setUserProfile({
-      designation: data.designation,
-      department: data.department,
-      responsibilities: data.responsibilities,
-      challenges: data.challenges,
-      topics: data.topics,
-      learningModality: data.learningModality,
-      hasUploadedEvidence: data.hasUploadedEvidence
-    });
-    setHasCompletedOnboarding(true);
+  const finishOnboarding = async () => {
+    try {
+      await fetchWithAuth('/api/me/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          designation: data.designation,
+          department: data.department,
+          currentResponsibilities: data.responsibilities,
+          keySkills: data.topics
+        })
+      });
+
+      await fetchWithAuth('/api/me/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({
+          learningBarriers: data.challenges,
+          preferredLearningFormat: data.learningModality
+        })
+      });
+      
+      await fetchWithAuth('/api/me/profile/status', {
+        method: 'POST',
+        body: JSON.stringify({ status: 'COMPLETED' })
+      });
+      
+      setUserProfile({
+        designation: data.designation,
+        department: data.department,
+        responsibilities: data.responsibilities,
+        challenges: data.challenges,
+        topics: data.topics,
+        learningModality: data.learningModality,
+        hasUploadedEvidence: data.hasUploadedEvidence
+      });
+      setHasCompletedOnboarding(true);
+    } catch (e) {
+      console.error('Failed to save profile', e);
+      // Fallback
+      setHasCompletedOnboarding(true);
+    }
   };
 
   return (
@@ -88,7 +118,7 @@ export function OnboardingFlow() {
             <AiAnalysisStep data={data} onNext={nextStep} />
           )}
           {currentStep === 5 && (
-            <CapabilityProfileStep onFinish={finishOnboarding} />
+            <CapabilityProfileStep data={data} onPrev={prevStep} onNext={()=>{}} onFinish={finishOnboarding} />
           )}
         </div>
       </div>

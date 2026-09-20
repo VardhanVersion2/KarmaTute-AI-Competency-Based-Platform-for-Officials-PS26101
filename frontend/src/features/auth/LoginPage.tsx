@@ -3,8 +3,11 @@ import { useApp } from '../../context/AppContext';
 import { ShieldCheck, ArrowRight, Loader2, Database, BrainCircuit, Activity, UploadCloud, Fingerprint } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
+import { setAuthToken } from '../../services/apiClient';
+import { API_BASE_URL } from '../../services/apiConfig';
+
 export function LoginPage() {
-  const { setIsAuthenticated, setCurrentPage } = useApp();
+  const { setIsAuthenticated, setCurrentPage, setUserRole } = useApp();
   const toast = useToast();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState('');
@@ -15,16 +18,33 @@ export function LoginPage() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
-    setTimeout(() => {
-      localStorage.setItem('demo_fresh_start', 'true');
-      toast.success('Authentication successful');
-      setIsAuthenticated(true);
-      setCurrentPage('command-center');
-    }, 1200);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuthToken(data.token);
+        setUserRole(data.role);
+        toast.success('Authentication successful');
+        setIsAuthenticated(true);
+        setCurrentPage('command-center');
+      } else {
+        toast.error('Invalid credentials');
+      }
+    } catch (e) {
+      toast.error('Network error during login');
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
+
+  const [gatiSecretKey, setGatiSecretKey] = useState('');
 
   const handleKarmaFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,15 +54,44 @@ export function LoginPage() {
       toast.error('Invalid file format. Please upload a .karma security token.');
       return;
     }
+    
+    if (!gatiSecretKey || gatiSecretKey.trim() === '') {
+      toast.error('Please enter your 44-character Secret Key first.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setIsUploading(true);
-    // Simulate KarmaDNA processing
-    setTimeout(() => {
-      setIsUploading(false);
-      toast.success('KarmaDNA Verified. Secure Gati-Login active.');
-      setIsAuthenticated(true);
-      setCurrentPage('command-center');
-    }, 1800);
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const fileData = e.target?.result as string;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/karmadna/gati-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secretKey: gatiSecretKey, karmaData: fileData })
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setAuthToken(data.token);
+          setUserRole(data.role);
+          toast.success('KarmaDNA Verified. Secure Gati-Login active.');
+          setIsAuthenticated(true);
+          setCurrentPage('command-center');
+        } else {
+          const errorData = await res.json();
+          toast.error(errorData.error || 'Invalid KarmaDNA file or Secret Key.');
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      } catch (err) {
+        toast.error('Network error during Gati-Login');
+      } finally {
+        setIsUploading(false);
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -212,7 +261,21 @@ export function LoginPage() {
               </button>
             </form>
           ) : (
-            <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="space-y-2 mb-4">
+                <label className="block text-xs font-bold text-gov-text-primary uppercase tracking-wider">
+                  Secret Key
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-3 rounded bg-gov-surface border border-gov-border focus:border-gov-primary focus:ring-1 focus:ring-gov-primary outline-none transition-colors text-sm font-mono text-gov-text-primary placeholder:text-gov-text-muted"
+                  placeholder="Paste your 44-character secret key..."
+                  value={gatiSecretKey}
+                  onChange={(e) => setGatiSecretKey(e.target.value)}
+                />
+              </div>
+
               <div className="border-2 border-dashed border-gov-border hover:border-gov-primary/50 bg-gov-surface/50 rounded-lg p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
                 <input 
                   type="file" 

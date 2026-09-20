@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface CompetencySnapshotRepository extends JpaRepository<CompetencySnapshot, Long> {
     List<CompetencySnapshot> findByUserIdAndCompetencyIdOrderByTimestampDesc(Long userId, Long competencyId);
+    List<CompetencySnapshot> findByUserId(Long userId);
 }

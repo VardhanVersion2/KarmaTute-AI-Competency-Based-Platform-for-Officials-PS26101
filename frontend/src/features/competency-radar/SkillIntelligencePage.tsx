@@ -7,7 +7,7 @@ import { useApp } from '../../context/AppContext';
 import { RefreshCw, Target, Activity, ShieldCheck, ChevronRight, Layers, Award } from 'lucide-react';
 import { getCompetencySnapshots, type CompetencySnapshot } from '../../services/evidenceApi';
 
-const DEMO_USER_ID = 1;
+
 
 const COMPETENCY_NAMES: Record<number, { name: string; domain: string }> = {
   1: { name: 'Public Policy & Circular Analysis', domain: 'GOVERNANCE' },
@@ -104,7 +104,7 @@ const DEFAULT_COMPETENCIES: CompetencyView[] = [
 
 export function SkillIntelligencePage() {
   const toast = useToast();
-  const { userProfile } = useApp();
+  const { userProfile, setCurrentPage } = useApp();
   const [competencies, setCompetencies] = useState<CompetencyView[]>(DEFAULT_COMPETENCIES);
   const [selectedComp, setSelectedComp] = useState<CompetencyView | null>(null);
   const [coreState, setCoreState] = useState<CoreState>('idle');
@@ -114,13 +114,8 @@ export function SkillIntelligencePage() {
 
   const loadData = useCallback(async () => {
     try {
-      const isFresh = localStorage.getItem('demo_fresh_start') === 'true';
-      if (isFresh) {
-        setCompetencies(DEFAULT_COMPETENCIES);
-        setCoreState('success');
-        return;
-      }
-      const rawData = await getCompetencySnapshots(DEMO_USER_ID);
+
+      const rawData = await getCompetencySnapshots(); // no ID argument needed
       if (Array.isArray(rawData) && rawData.length > 0) {
         const grouped = new Map<number, SafeCompetencySnapshot[]>();
         rawData.forEach((snap: any) => {
@@ -338,7 +333,7 @@ export function SkillIntelligencePage() {
 
                   {/* ACTION CTA */}
                   <div className="mt-auto pt-4 flex justify-end">
-                    <Button size="lg" className="bg-gov-primary hover:bg-gov-primary-hover text-white shadow-sm font-bold px-8">
+                    <Button size="lg" className="bg-gov-primary hover:bg-gov-primary-hover text-white shadow-sm font-bold px-8" onClick={() => setCurrentPage("execution-lab")}>
                       Resolve Gap in Execution Lab
                     </Button>
                   </div>

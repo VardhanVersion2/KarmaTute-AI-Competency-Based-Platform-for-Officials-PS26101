@@ -75,20 +75,12 @@ export function CommandCenterPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const isFresh = localStorage.getItem('demo_fresh_start') === 'true';
-      if (isFresh) {
-        setData(DEFAULT_COMMAND_CENTER_DATA);
-        setIsLoading(false);
-        return;
-      }
-      
       const response = await fetchCommandCenterData();
       if (response && response.state !== 'error') {
         setData(response);
       }
     } catch (error) {
-      // Fallback to default mock data silently so user never sees a blank screen
-      console.warn('Using local pre-cached command center dataset:', error);
+      console.warn('Command center fetch failed, using baseline state:', error);
     } finally {
       setIsLoading(false);
     }
@@ -126,10 +118,55 @@ export function CommandCenterPage() {
 
   const nextAction = data.nextBestAction || DEFAULT_COMMAND_CENTER_DATA.nextBestAction;
 
-  // Fake 30 days activity for Heatmap
-  const activityDays = Array.from({length: 35}, () => 0); // Starting fresh demo
+  // Real avatar initials from authenticated user profile
+  const fullName = data.userContext?.fullName || userProfile?.designation || 'Officer';
+  const avatarInitials = fullName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w: string) => w[0].toUpperCase())
+    .join('') || 'OF';
+
+  // Real competency bars from backend priorityGap + pulse
+  const competencyBars = (() => {
+    const gap = data.priorityGap;
+    const pulse = data.competencyPulse;
+    const bars: Array<{ label: string; pct: number; domain: string }> = [];
+    if (gap) {
+      const pct = gap.targetLevel > 0 ? Math.round((gap.currentLevel / gap.targetLevel) * 100) : 0;
+      bars.push({ label: gap.competencyName, pct, domain: gap.domain });
+    }
+    if (pulse && pulse.overallMastery > 0) {
+      bars.push({ label: 'Overall Mastery', pct: Math.round(pulse.overallMastery), domain: 'COMPOSITE' });
+    }
+    // If user has topics from onboarding show them
+    if (bars.length === 0 && userProfile?.topics) {
+      userProfile.topics.split(',').slice(0, 3).forEach((topic: string) => {
+        bars.push({ label: topic.trim(), pct: 0, domain: 'PROFILE' });
+      });
+    }
+    return bars;
+  })();
+
+  // Heatmap: derive from recentEvidence dates (last 35 days)
+  const activityDays = (() => {
+    const days = Array.from({ length: 35 }, () => 0);
+    const evidence = (data as any).recentEvidence || [];
+    const now = Date.now();
+    evidence.forEach((ev: any) => {
+      if (!ev.verifiedDateFormatted) return;
+      const evDate = new Date(ev.verifiedDateFormatted).getTime();
+      const daysAgo = Math.floor((now - evDate) / (1000 * 60 * 60 * 24));
+      const idx = 34 - daysAgo;
+      if (idx >= 0 && idx < 35) {
+        days[idx] = Math.min(3, days[idx] + 1);
+      }
+    });
+    return days;
+  })();
+
   const getHeatmapColor = (level: number) => {
-    switch(level) {
+    switch (level) {
       case 0: return 'bg-gov-bg border border-gov-border/50';
       case 1: return 'bg-[#c6e48b] border border-[#7bc96f]/30';
       case 2: return 'bg-[#7bc96f] border border-[#239a3b]/30';
@@ -160,10 +197,10 @@ export function CommandCenterPage() {
           <div className="bg-white border-t-[4px] border-t-gov-primary border border-gov-border shadow-sm p-6 flex flex-col gap-4 rounded">
              <div className="flex items-center gap-4">
                 <div className="w-14 h-14 min-w-[56px] min-h-[56px] aspect-square shrink-0 bg-gov-primary text-white rounded-full flex items-center justify-center text-xl font-extrabold shadow-inner border-2 border-white ring-2 ring-gov-border">
-                   DU
+                   {avatarInitials}
                 </div>
                 <div className="flex flex-col min-w-0">
-                   <h1 className="text-xl font-extrabold text-gov-primary tracking-tight leading-tight truncate">{data.userContext?.fullName || 'Demo Officer'}</h1>
+                   <h1 className="text-xl font-extrabold text-gov-primary tracking-tight leading-tight truncate">{data.userContext?.fullName || userProfile?.designation || 'Officer'}</h1>
                    <span className="text-xs text-gov-text-secondary font-medium mt-1 truncate">
                      {userProfile?.designation || data.userContext?.designation} · {userProfile?.department || data.userContext?.department}
                    </span>
@@ -171,7 +208,7 @@ export function CommandCenterPage() {
              </div>
              
              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="font-mono text-[10px] text-gov-accent border-gov-accent/30 bg-gov-accent/5 px-2 py-0.5 shrink-0">
+                <Badge variant="neutral" className="font-mono text-[10px] text-gov-accent border-gov-accent/30 bg-gov-accent/5 px-2 py-0.5 shrink-0">
                   KRMA-7742-99A1
                 </Badge>
                 <div className="flex items-center gap-1.5 bg-gov-surface-muted border border-gov-border px-2 py-0.5 rounded text-[10px] font-bold text-gov-text-secondary shrink-0">
@@ -188,7 +225,7 @@ export function CommandCenterPage() {
                </div>
                <div>
                  <div className="text-[10px] font-bold text-gov-text-secondary uppercase tracking-wider">Operational Readiness</div>
-                 <div className="text-2xl font-bold text-gov-primary">0%</div>
+                 <div className="text-2xl font-bold text-gov-primary">{data.progress?.overallProgressPercent ?? 0}%</div>
                </div>
             </div>
             
@@ -198,7 +235,7 @@ export function CommandCenterPage() {
                </div>
                <div>
                  <div className="text-[10px] font-bold text-gov-text-secondary uppercase tracking-wider">Verified Tokens</div>
-                 <div className="text-2xl font-bold text-gov-primary flex items-center gap-2">0 <span className="text-[10px] font-medium text-gov-text-muted">(Data Chamber)</span></div>
+                 <div className="text-2xl font-bold text-gov-primary flex items-center gap-2">{data.competencyPulse?.verifiedCount ?? (data as any).recentEvidence?.length ?? 0} <span className="text-[10px] font-medium text-gov-text-muted">(Data Chamber)</span></div>
                </div>
             </div>
             
@@ -208,7 +245,7 @@ export function CommandCenterPage() {
                </div>
                <div>
                  <div className="text-[10px] font-bold text-gov-text-secondary uppercase tracking-wider">Active Skill Gaps</div>
-                 <div className="text-2xl font-bold text-gov-primary">0</div>
+                 <div className="text-2xl font-bold text-gov-primary">{data.priorityGap ? 1 : 0}</div>
                </div>
             </div>
           </div>
@@ -284,39 +321,31 @@ export function CommandCenterPage() {
               </div>
               
               <div className="flex flex-col gap-5 flex-1 justify-center py-2">
-                <div>
-                  <div className="flex justify-between items-end mb-1.5">
-                    <div className="text-xs font-bold text-gov-text-primary">Survey Sampling</div>
-                    <div className="text-[10px] text-gov-text-secondary font-bold">0%</div>
+                {competencyBars.length === 0 ? (
+                  <div className="text-center py-4 text-xs text-gov-text-muted">
+                    <p className="font-medium">Complete your first assessment</p>
+                    <p className="mt-1">Competency data will appear here after Level 1.</p>
                   </div>
-                  <div className="w-full bg-gov-surface-muted h-2.5 rounded-full relative shadow-inner overflow-hidden">
-                    <div className="bg-gov-danger h-full rounded-full transition-all duration-1000" style={{ width: '0%' }} />
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-end mb-1.5">
-                    <div className="text-xs font-bold text-gov-text-primary">Data Quality</div>
-                    <div className="text-[10px] text-gov-text-secondary font-bold">0%</div>
-                  </div>
-                  <div className="w-full bg-gov-surface-muted h-2.5 rounded-full relative shadow-inner overflow-hidden">
-                    <div className="bg-gov-danger h-full rounded-full transition-all duration-1000" style={{ width: '0%' }} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-end mb-1.5">
-                    <div className="text-xs font-bold text-gov-text-primary">SQL Operations</div>
-                    <div className="text-[10px] text-gov-text-secondary font-bold">0%</div>
-                  </div>
-                  <div className="w-full bg-gov-surface-muted h-2.5 rounded-full relative shadow-inner overflow-hidden">
-                    <div className="bg-gov-danger h-full rounded-full transition-all duration-1000" style={{ width: '0%' }} />
-                  </div>
-                </div>
+                ) : (
+                  competencyBars.map((bar, idx) => {
+                    const barColor = bar.pct >= 70 ? 'bg-gov-success' : bar.pct >= 40 ? 'bg-gov-warning' : 'bg-gov-danger';
+                    return (
+                      <div key={idx}>
+                        <div className="flex justify-between items-end mb-1.5">
+                          <div className="text-xs font-bold text-gov-text-primary truncate max-w-[70%]">{bar.label}</div>
+                          <div className="text-[10px] text-gov-text-secondary font-bold">{bar.pct}%</div>
+                        </div>
+                        <div className="w-full bg-gov-surface-muted h-2.5 rounded-full relative shadow-inner overflow-hidden">
+                          <div className={`${barColor} h-full rounded-full transition-all duration-1000`} style={{ width: `${bar.pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               <div className="text-[10px] text-gov-text-muted mt-2 text-center pt-2 border-t border-gov-border/60">
-                Baseline profile initialized · Ready for evaluation
+                {competencyBars.length === 0 ? 'Awaiting first assessment' : `${data.competencyPulse?.totalTracked || competencyBars.length} competencies tracked`}
               </div>
             </div>
 

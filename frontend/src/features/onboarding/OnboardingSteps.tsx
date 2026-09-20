@@ -235,7 +235,9 @@ export function AiAnalysisStep({ onNext }: StepProps) {
   );
 }
 
-export function CapabilityProfileStep({ onFinish }: StepProps) {
+export function CapabilityProfileStep({ data, onFinish }: StepProps) {
+  const topics = data.topics ? data.topics.split(',').map(t => t.trim()).filter(Boolean) : ['Data Analysis', 'Policy Admin'];
+  
   return (
     <div className="animate-in fade-in zoom-in-95 duration-500">
       <div className="text-center mb-8">
@@ -254,9 +256,11 @@ export function CapabilityProfileStep({ onFinish }: StepProps) {
           <div>
             <h4 className="font-bold text-gov-primary text-sm uppercase tracking-wider mb-1">Baseline Competencies Detected</h4>
             <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-semibold bg-white border border-gray-200 px-2 py-1 rounded">Data Analysis (Level 2)</span>
-              <span className="text-xs font-semibold bg-white border border-gray-200 px-2 py-1 rounded">Policy Admin (Level 1)</span>
-              <span className="text-xs font-semibold bg-white border border-gray-200 px-2 py-1 rounded">Team Mgmt (Level 2)</span>
+              {topics.map((topic, i) => (
+                <span key={i} className="text-xs font-semibold bg-white border border-gray-200 px-2 py-1 rounded">
+                  {topic} (Level 1)
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -266,7 +270,7 @@ export function CapabilityProfileStep({ onFinish }: StepProps) {
           <div>
             <h4 className="font-bold text-gov-primary text-sm uppercase tracking-wider mb-1">Recommended Next Action</h4>
             <p className="text-sm text-gray-700">
-              Complete the <span className="font-semibold text-gov-primary">Data Ethics Baseline Assessment</span> to validate your current proficiency and unlock advanced paths.
+              Complete the <span className="font-semibold text-gov-primary">{topics[0] || 'Data Ethics'} Baseline Assessment</span> to validate your current proficiency and unlock advanced paths.
             </p>
           </div>
         </div>

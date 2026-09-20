@@ -228,7 +228,7 @@ export function AppLayout() {
 
               <button
                 onClick={() => {
-                  toast.success('Logging out securely...', { icon: <LogOut size={16} /> });
+                  toast.success('Logging out securely...');
                   setTimeout(() => {
                     setIsAuthenticated(false);
                   }, 1000);

@@ -9,16 +9,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
+
 @Component
 public class DataInitializer implements ApplicationRunner {
 
+    @Value("${karmatute.demo.mode:false}")
+    private boolean demoMode;
+
+    private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final CompetencyRepository competencyRepository;
     private final UserCompetencyRepository userCompetencyRepository;
     private final CompetencyGapRepository competencyGapRepository;
     private final NextBestActionRepository nextBestActionRepository;
     private final EvidenceItemRepository evidenceItemRepository;
-    private final AssessmentRepository assessmentRepository;
 
     public DataInitializer(
         UserRepository userRepository,
@@ -27,7 +33,7 @@ public class DataInitializer implements ApplicationRunner {
         CompetencyGapRepository competencyGapRepository,
         NextBestActionRepository nextBestActionRepository,
         EvidenceItemRepository evidenceItemRepository,
-        AssessmentRepository assessmentRepository
+        PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.competencyRepository = competencyRepository;
@@ -35,25 +41,36 @@ public class DataInitializer implements ApplicationRunner {
         this.competencyGapRepository = competencyGapRepository;
         this.nextBestActionRepository = nextBestActionRepository;
         this.evidenceItemRepository = evidenceItemRepository;
-        this.assessmentRepository = assessmentRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        if (!demoMode) {
+            System.out.println("Normal mode: skipping demo data seeding.");
+            return;
+        }
+
+
         if (userRepository.count() > 0) {
             return;
         }
+        System.out.println("DEMO MODE ENABLED: Seeding Rajesh Kumar demo user.");
 
         // 1. Seed User
         User learner = new User(
             "rajesh.kumar",
+            passwordEncoder.encode("demo123"),
             "Rajesh Kumar",
-            "ROLE_LEARNER",
-            "Department of Administrative Reforms & Public Grievances",
-            "Section Officer",
-            "Under Secretary - Digital Governance"
+            "ROLE_LEARNER"
         );
+        UserProfile profile = new UserProfile(learner);
+        profile.setDepartment("Department of Administrative Reforms & Public Grievances");
+        profile.setDesignation("Section Officer");
+        profile.setTargetRole("Under Secretary - Digital Governance");
+        learner.setProfile(profile);
+        
         learner = userRepository.save(learner);
 
         // 2. Seed Competencies
@@ -75,14 +92,11 @@ public class DataInitializer implements ApplicationRunner {
         );
         dpdpComp = competencyRepository.save(dpdpComp);
 
-        Competency dataQualityComp = new Competency(
-            "COMP-STAT-03",
-            "National Data Quality Assurance Framework",
-            "STATISTICAL",
-            "Rigorous adherence to NDQAF guidelines for survey and census operations.",
-            80
-        );
-        dataQualityComp = competencyRepository.save(dataQualityComp);
+        
+        Competency dataQualityComp = competencyRepository.findByCode("COMP-STAT-03").orElseGet(() -> {
+            return null;
+        });
+
 
         Competency ethicsComp = new Competency(
             "COMP-OPS-04",
@@ -118,16 +132,6 @@ public class DataInitializer implements ApplicationRunner {
             "RECOMMENDED"
         ));
 
-        // 6. Seed Execution Lab Assessment
-        if (assessmentRepository.count() == 0) {
-            Assessment assessment = new Assessment();
-            assessment.setTitle("NDQAF Field Data Collection Execution");
-            assessment.setDescription("Demonstrate practical execution of the National Data Quality Assurance Framework by analyzing and extracting data from physical field forms into the digital system with high precision.");
-            assessment.setLevel(KarmaTute.KarmaTute.enums.AssessmentLevel.LEVEL_2_WRITTEN);
-            assessment.setCompetency(dataQualityComp);
-            assessmentRepository.save(assessment);
-        }
-
         // 6. Seed Evidence Items
         evidenceItemRepository.save(new EvidenceItem(
             learner,
@@ -158,3 +162,4 @@ public class DataInitializer implements ApplicationRunner {
         ));
     }
 }
+

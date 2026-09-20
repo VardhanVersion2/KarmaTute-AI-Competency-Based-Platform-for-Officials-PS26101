@@ -15,8 +15,11 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.springframework.test.context.TestPropertySource;
+
 @SpringBootTest
 @Transactional
+@TestPropertySource(properties = {"karmatute.demo.mode=true"})
 class CommandCenterIntegrationTests {
 
     @Autowired
@@ -44,7 +47,7 @@ class CommandCenterIntegrationTests {
         assertNotNull(user.getId(), "User ID must exist");
         assertNotNull(user.getFullName(), "User full name must exist");
         assertEquals("ROLE_LEARNER", user.getRole(), "User role must be ROLE_LEARNER");
-        assertNotNull(user.getTargetRole(), "Target role must be defined for career progression");
+        assertNotNull(user.getProfile().getTargetRole(), "Target role must be defined for career progression");
     }
 
     @Test
@@ -90,6 +93,7 @@ class CommandCenterIntegrationTests {
         assertNotNull(nba.getTitle(), "Recommendation title must not be null");
         assertNotNull(nba.getWhyThis(), "Recommendation must explicitly state 'Why this?'");
         assertTrue(nba.getWhyThis().length() > 20, "'Why this?' rationale must be descriptive and grounded");
+        assertEquals("Under Secretary - Digital Governance", user.getProfile().getTargetRole());
         assertEquals("execution-lab", nba.getActionRoute(), "Next action route must point to execution-lab");
     }
 

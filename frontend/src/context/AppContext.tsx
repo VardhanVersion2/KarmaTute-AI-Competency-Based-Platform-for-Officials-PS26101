@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { fetchWithAuth, getAuthToken } from '../services/apiClient';
 
 export type PageId =
   | 'command-center'
@@ -73,6 +74,34 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     }
     setUserProfileState(profile);
   };
+
+
+
+  useEffect(() => {
+    if (isAuthenticated && getAuthToken()) {
+      fetchWithAuth('/api/me/bootstrap').then(res => res.json()).then(data => {
+        if (data.identity?.role) {
+          setUserRole(data.identity.role);
+        }
+        if (data.profile) {
+          setUserProfile({
+            designation: data.profile.designation || '',
+            department: data.profile.department || '',
+            responsibilities: data.profile.currentResponsibilities || '',
+            challenges: data.preferences?.learningBarriers || '',
+            topics: data.profile.keySkills || '',
+            learningModality: data.preferences?.preferredLearningFormat || '',
+            hasUploadedEvidence: true
+          });
+        }
+        if (data.identity?.profileStatus === 'COMPLETED') {
+          setHasCompletedOnboarding(true);
+        } else {
+          setHasCompletedOnboarding(false);
+        }
+      }).catch(console.error);
+    }
+  }, [isAuthenticated]);
 
   const isAdmin = userRole === 'ROLE_ADMIN';
 

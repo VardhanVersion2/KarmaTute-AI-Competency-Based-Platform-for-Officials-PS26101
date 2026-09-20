@@ -40,8 +40,51 @@ export class WebSpeechProvider implements VoiceProvider {
                   
     if (voice) utterance.voice = voice;
     
-    utterance.rate = 0.95; // Slightly slower for more natural pacing
-    utterance.pitch = 1.0;
+    // Emotion parsing: Format "[emotion] Text..."
+    let pitch = 1.0;
+    let rate = 0.95; // Default natural pacing
+    
+    if (text.startsWith('[')) {
+        const match = text.match(/^\[(.*?)\]\s*(.*)/);
+        if (match) {
+            const emotion = match[1].toLowerCase();
+            utterance.text = match[2]; // Remove tag from spoken text
+            
+            switch (emotion) {
+                case 'calm':
+                    pitch = 0.9;
+                    rate = 0.88;
+                    break;
+                case 'curious':
+                    pitch = 1.15;
+                    rate = 1.0;
+                    break;
+                case 'encouraging':
+                    pitch = 1.05;
+                    rate = 0.95;
+                    break;
+                case 'concerned':
+                    pitch = 0.85;
+                    rate = 0.85;
+                    break;
+                case 'celebratory':
+                    pitch = 1.2;
+                    rate = 1.1;
+                    break;
+                case 'firm':
+                    pitch = 0.95;
+                    rate = 1.0;
+                    break;
+                case 'urgent':
+                    pitch = 1.1;
+                    rate = 1.15;
+                    break;
+            }
+        }
+    }
+    
+    utterance.rate = rate;
+    utterance.pitch = pitch;
     
     if (onEnd) {
       utterance.onend = onEnd;

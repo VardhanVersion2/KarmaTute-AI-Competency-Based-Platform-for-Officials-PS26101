@@ -65,8 +65,8 @@ public class ExecutionLabIntegrationTests {
         AssessmentAttempt attempt = executionLabService.startAttempt(testUser.getId(), testAssessment.getId());
 
         SubmitOCRRequest request = new SubmitOCRRequest();
-        request.setSimulatedExtractedText("This is a good answer.");
-        request.setSimulatedConfidence(0.95);
+        
+        
 
         AssessmentAttempt updated = executionLabService.submitOCR(attempt.getId(), request);
 
@@ -79,8 +79,8 @@ public class ExecutionLabIntegrationTests {
         AssessmentAttempt attempt = executionLabService.startAttempt(testUser.getId(), testAssessment.getId());
 
         SubmitOCRRequest request = new SubmitOCRRequest();
-        request.setSimulatedExtractedText("Th1s 1s b@d 0cr.");
-        request.setSimulatedConfidence(0.60);
+        
+        
 
         AssessmentAttempt updated = executionLabService.submitOCR(attempt.getId(), request);
 

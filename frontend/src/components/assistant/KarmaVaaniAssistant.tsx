@@ -9,6 +9,9 @@ export function KarmaVaaniAssistant() {
   const [hasOpenedOnce, setHasOpenedOnce] = useState(false);
   const [assistantMessage, setAssistantMessage] = useState("Hello! I am KarmaVaani, your Helping Hand. Click the microphone and tell me where you want to go or what you want to learn about the platform.");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isAutoMode, setIsAutoMode] = useState(false);
+  
+  const [currentEmotion, setCurrentEmotion] = useState('calm');
   const { isListening, transcript, error, startListening, stopListening } = useVoice();
   const { speak, stop, processCommand } = useKarmaVaaniBrain();
   
@@ -16,55 +19,55 @@ export function KarmaVaaniAssistant() {
   const lastProcessedTranscript = useRef('');
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isAutoMode, setIsAutoMode] = useState(false);
-
   // Auto-recommendation on first load
   useEffect(() => {
+    if (hasOpenedOnce) return;
     const timer = setTimeout(() => {
-      if (!hasOpenedOnce) {
-        setIsOpen(true);
-        setHasOpenedOnce(true);
-        const welcomeMsg = "Welcome to Karma Tute. I am Karma Vaani, your voice assistant. Click the microphone below to ask for help or navigate.";
-        setAssistantMessage(welcomeMsg);
-      }
-    }, 5000); 
-    
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.getVoices();
-    }
-    
+      setIsOpen(true);
+      setHasOpenedOnce(true);
+      setIsSpeaking(true);
+      speak("[encouraging] Welcome! I am Karma Vaani, your AI Helping Hand. Kahiye kaise madad karoon?", 'hinglish', () => setIsSpeaking(false));
+    }, 5000);
     return () => clearTimeout(timer);
-  }, [hasOpenedOnce]);
+  }, [speak, hasOpenedOnce]);
 
-  // Handle the transcript from the microphone
+
+  // Handle incoming voice transcript
   useEffect(() => {
     if (error) {
-      // If there's an error, just display it. We don't speak it aloud to prevent annoying loops.
-      setAssistantMessage(error);
-      setIsSpeaking(false);
+      setAssistantMessage(`Error: ${error}`);
       return;
     }
 
     if (transcript && transcript !== lastProcessedTranscript.current) {
       if (isSpeaking) {
-         if (isListening) stopListening();
-         return;
+          stopListening();
+          return;
       }
-      
       setAssistantMessage(`You: "${transcript}"`);
       
       if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
       
+      // Wait for user to stop talking
       silenceTimeoutRef.current = setTimeout(() => {
         stopListening();
         lastProcessedTranscript.current = transcript;
         
         const { response, lang } = processCommand(transcript);
-        setAssistantMessage(response);
+        
+        let cleanResponse = response;
+        let emotionMatch = response.match(/^\[(.*?)\]\s*(.*)/);
+        if (emotionMatch) {
+          setCurrentEmotion(emotionMatch[1].toLowerCase());
+          cleanResponse = emotionMatch[2];
+        }
+
+        setAssistantMessage(cleanResponse);
         
         setIsSpeaking(true);
         speak(response, lang, () => {
            setIsSpeaking(false);
+           setCurrentEmotion('calm');
            if (isAutoMode) {
               setAssistantMessage("Listening...");
               setTimeout(startListening, 300);
@@ -76,7 +79,7 @@ export function KarmaVaaniAssistant() {
     return () => {
       if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
     }
-  }, [transcript, error, stopListening, processCommand, speak, isAutoMode, startListening]);
+  }, [transcript, error, stopListening, processCommand, speak, isAutoMode, startListening, isSpeaking]);
 
   // Robust Auto-Mode Recovery
   useEffect(() => {
@@ -107,13 +110,21 @@ export function KarmaVaaniAssistant() {
     }
   };
 
+  const handleClose = () => {
+    if (isOpen) {
+       stop();
+       setIsSpeaking(false);
+       stopListening();
+       setIsAutoMode(false);
+    }
+    setIsOpen(false);
+    if (!hasOpenedOnce) setHasOpenedOnce(true);
+  };
+
   return (
     <>
       <button 
-        onClick={() => {
-            setIsOpen(!isOpen);
-            if (!hasOpenedOnce) setHasOpenedOnce(true);
-        }}
+        onClick={handleClose}
         className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 ${isOpen ? 'bg-gov-surface text-gov-primary border border-gov-border' : 'bg-gov-primary text-white hover:bg-gov-primary-hover hover:scale-105'}`}
         aria-label="Toggle KarmaVaani Assistant"
       >
@@ -130,19 +141,29 @@ export function KarmaVaaniAssistant() {
         className={`fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-gov-surface border border-gov-border rounded-lg shadow-[0_10px_40px_rgba(0,51,102,0.15)] transition-all duration-500 overflow-hidden ${isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-10 scale-95 pointer-events-none'}`}
       >
         <div className="bg-gov-primary p-4 flex justify-between items-center text-white">
-          <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-full flex items-center justify-center relative overflow-hidden">
-                <div className="flex gap-1 items-end h-4 relative z-10">
-                    <div className={`w-1 bg-white rounded-t-sm transition-all duration-300 ${isSpeaking ? 'animate-[wave_1s_infinite_0.1s]' : isListening ? 'h-3 animate-pulse bg-gov-accent' : 'h-1'}`} />
-                    <div className={`w-1 bg-white rounded-t-sm transition-all duration-300 ${isSpeaking ? 'animate-[wave_1s_infinite_0.3s]' : isListening ? 'h-4 animate-pulse bg-gov-accent' : 'h-2'}`} />
-                    <div className={`w-1 bg-white rounded-t-sm transition-all duration-300 ${isSpeaking ? 'animate-[wave_1s_infinite_0.5s]' : isListening ? 'h-2 animate-pulse bg-gov-accent' : 'h-1'}`} />
-                </div>
-             </div>
-             <div className="flex flex-col">
-                <span className="font-bold tracking-wide">KarmaVaani</span>
-                <span className="text-[10px] text-white/70 uppercase tracking-widest font-medium">Helping Hand</span>
-             </div>
-          </div>
+            <div className="flex items-center gap-3">
+               <div className={`w-8 h-8 rounded-full flex items-center justify-center relative overflow-hidden transition-colors duration-500
+                 ${currentEmotion === 'celebratory' ? 'bg-gov-success text-white shadow-[0_0_15px_rgba(22,163,74,0.6)]' :
+                   currentEmotion === 'urgent' ? 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.6)]' :
+                   currentEmotion === 'concerned' ? 'bg-blue-300 text-white' :
+                   currentEmotion === 'encouraging' ? 'bg-pink-500 text-white' :
+                   currentEmotion === 'firm' ? 'bg-gov-primary-hover text-white' :
+                   'bg-gov-primary text-white'
+                 }`}>
+                  <div className="flex gap-1 items-end h-4 relative z-10">
+                      <div className={`w-1 bg-white rounded-t-sm transition-all duration-300 ${isSpeaking ? 'animate-[wave_1s_infinite_0.1s]' : isListening ? 'h-3 animate-pulse bg-white/80' : 'h-1'}`} />
+                      <div className={`w-1 bg-white rounded-t-sm transition-all duration-300 ${isSpeaking ? 'animate-[wave_1s_infinite_0.3s]' : isListening ? 'h-4 animate-pulse bg-white/80' : 'h-2'}`} />
+                      <div className={`w-1 bg-white rounded-t-sm transition-all duration-300 ${isSpeaking ? 'animate-[wave_1s_infinite_0.5s]' : isListening ? 'h-2 animate-pulse bg-white/80' : 'h-1'}`} />
+                  </div>
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                    KARMA VAANI 
+                    <span className="text-[9px] uppercase bg-white/20 px-1.5 py-0.5 rounded opacity-80">{currentEmotion}</span>
+                  </span>
+                  <span className="text-[10px] text-white/70 flex flex-wrap items-center gap-1">National AI Helper <span className="bg-white/10 px-1 py-0.5 rounded mt-0.5">Bilingual (EN & HI)</span></span>
+               </div>
+            </div>
           <HelpCircle size={18} className="text-white/50" />
         </div>
 

@@ -83,7 +83,7 @@ public class AIGatewayService {
             // Using default configured provider for now, but recording logical model routing for metrics.
             ChatResponse chatResponse = chatClient.prompt(prompt).call().chatResponse();
 
-            String responseText = chatResponse.getResult().getOutput().getText();
+            String responseText = chatResponse.getResult().getOutput().getContent();
             if (responseText == null) {
                 responseText = chatResponse.getResult().getOutput().toString();
             }

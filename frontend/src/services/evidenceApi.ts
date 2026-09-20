@@ -30,12 +30,12 @@ export interface CompetencySnapshot {
   timestamp: string;
 }
 
-import { API_BASE_URL } from './apiConfig';
+import { fetchWithAuth } from './apiClient';
 
-const API = `${API_BASE_URL}/api/evidence`;
+const API = `/api/evidence`;
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetchWithAuth(url, {
     ...options,
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...options?.headers },
   });
@@ -50,14 +50,14 @@ export async function submitEvidence(record: EvidenceRecord): Promise<EvidenceRe
   return api<EvidenceRecord>(API, { method: 'POST', body: JSON.stringify(record) });
 }
 
-export async function getUserEvidence(userId: number): Promise<EvidenceRecord[]> {
-  return api<EvidenceRecord[]>(`${API}/user/${userId}`);
+export async function getUserEvidence(): Promise<EvidenceRecord[]> {
+  return api<EvidenceRecord[]>(`${API}/me`);
 }
 
-export async function getCompetencySnapshots(userId: number): Promise<CompetencySnapshot[]> {
-  return api<CompetencySnapshot[]>(`${API}/competency-snapshot/user/${userId}`);
+export async function getCompetencySnapshots(): Promise<CompetencySnapshot[]> {
+  return api<CompetencySnapshot[]>(`${API}/me/competency-snapshot`);
 }
 
-export async function getCompetencyHistory(userId: number, competencyId: number): Promise<CompetencySnapshot[]> {
-  return api<CompetencySnapshot[]>(`${API}/competency-snapshot/user/${userId}/competency/${competencyId}`);
+export async function getCompetencyHistory(competencyId: number): Promise<CompetencySnapshot[]> {
+  return api<CompetencySnapshot[]>(`${API}/me/competency-snapshot/competency/${competencyId}`);
 }

@@ -32,14 +32,11 @@ public class EvidenceService {
     }
 
     public List<EvidenceRecord> getUserEvidence(Long userId) {
-        return evidenceRepository.findAll().stream()
-            .filter(r -> r.getUserId() != null && r.getUserId().equals(userId))
-            .collect(Collectors.toList());
+        return evidenceRepository.findByUserId(userId);
     }
 
     public List<CompetencySnapshotDto> getCompetencySnapshots(Long userId) {
-        return snapshotRepository.findAll().stream()
-            .filter(s -> s.getUserId() != null && s.getUserId().equals(userId))
+        return snapshotRepository.findByUserId(userId).stream()
             .map(this::toDto)
             .collect(Collectors.toList());
     }

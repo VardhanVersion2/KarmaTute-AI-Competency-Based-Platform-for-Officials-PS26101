@@ -74,13 +74,17 @@ public class CommandCenterService {
         User user = userOpt.get();
 
         // User Context
+        String department = user.getProfile() != null ? user.getProfile().getDepartment() : "General";
+        String designation = user.getProfile() != null ? user.getProfile().getDesignation() : "Learner";
+        String targetRole = user.getProfile() != null ? user.getProfile().getTargetRole() : "Unknown";
+
         response.setUserContext(new UserContextDto(
             user.getId(),
             user.getFullName(),
             user.getRole(),
-            user.getDepartment(),
-            user.getDesignation(),
-            user.getTargetRole()
+            department,
+            designation,
+            targetRole
         ));
 
         // 2. Competencies & Pulse

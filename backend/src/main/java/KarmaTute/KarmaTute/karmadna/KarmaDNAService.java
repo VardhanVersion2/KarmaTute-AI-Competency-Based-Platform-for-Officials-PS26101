@@ -21,16 +21,22 @@ public class KarmaDNAService {
     private final EvidenceRecordRepository evidenceRepository;
     private final CompetencySnapshotRepository snapshotRepository;
     private final CertificateRepository certificateRepository;
+    private final UserProfileRepository userProfileRepository;
+    private final AssessmentSessionRepository assessmentSessionRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public KarmaDNAService(UserRepository userRepository,
                            EvidenceRecordRepository evidenceRepository,
                            CompetencySnapshotRepository snapshotRepository,
-                           CertificateRepository certificateRepository) {
+                           CertificateRepository certificateRepository,
+                           UserProfileRepository userProfileRepository,
+                           AssessmentSessionRepository assessmentSessionRepository) {
         this.userRepository = userRepository;
         this.evidenceRepository = evidenceRepository;
         this.snapshotRepository = snapshotRepository;
         this.certificateRepository = certificateRepository;
+        this.userProfileRepository = userProfileRepository;
+        this.assessmentSessionRepository = assessmentSessionRepository;
     }
 
     public KarmaDNAExportResult exportDNA(Long userId) throws Exception {
@@ -38,8 +44,10 @@ public class KarmaDNAService {
         
         Map<String, Object> dnaPayload = new HashMap<>();
         dnaPayload.put("user", user);
-        dnaPayload.put("evidence", evidenceRepository.findAll().stream().filter(e->e.getUserId().equals(userId)).toList());
-        dnaPayload.put("snapshots", snapshotRepository.findAll().stream().filter(s->s.getUserId().equals(userId)).toList());
+        dnaPayload.put("userProfile", userProfileRepository.findById(userId).orElse(null));
+        dnaPayload.put("assessmentSessions", assessmentSessionRepository.findByUserId(userId));
+        dnaPayload.put("evidence", evidenceRepository.findByUserId(userId));
+        dnaPayload.put("snapshots", snapshotRepository.findByUserId(userId));
         dnaPayload.put("certificates", certificateRepository.findByUserId(userId));
         dnaPayload.put("exportedAt", System.currentTimeMillis());
         dnaPayload.put("version", "v1.0.KarmaDNA");

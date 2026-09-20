@@ -65,32 +65,25 @@ export interface CommandCenterData {
   progress?: ProgressData;
 }
 
-import { API_BASE_URL } from './apiConfig';
+import { fetchWithAuth } from './apiClient';
 
 export async function fetchCommandCenterData(stateOverride?: string): Promise<CommandCenterData> {
   const queryParam = stateOverride && stateOverride !== 'live' ? '?state=' + encodeURIComponent(stateOverride) : '';
-  const endpoints = [
-    `${API_BASE_URL}/me/command-center${queryParam}`,
-    '/me/command-center' + queryParam,
-    '/api/v1/me/command-center' + queryParam,
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      const res = await fetch(endpoint, {
-        headers: { 'Accept': 'application/json' },
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // try next endpoint
+  
+  try {
+    const res = await fetchWithAuth(`/api/v1/me/command-center${queryParam}`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      return await res.json();
     }
+  } catch (e) {
+    console.error('Command center fetch failed:', e);
   }
 
-  // Graceful degradation when network/backend service is not reached directly
+  // Graceful degradation
   return {
     state: 'provider-unavailable',
-    stateMessage: 'Backend API connection offline. Please ensure Spring Boot service is active on port 8080.',
+    stateMessage: 'Backend API connection offline or Unauthorized. Please ensure you are logged in.',
   };
 }
