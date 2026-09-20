@@ -1,4 +1,4 @@
-﻿package KarmaTute.KarmaTute.controller;
+package KarmaTute.KarmaTute.controller;
 
 import KarmaTute.KarmaTute.competency.*;
 import KarmaTute.KarmaTute.entity.User;
